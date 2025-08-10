@@ -1,0 +1,121 @@
+name: 'Deploy Lambda Function'
+description: 'Build Node.js applications and deploy them to AWS Lambda'
+author: 'Your Organization'
+
+inputs:
+  node-version:
+    description: 'Node.js version to use'
+    required: false
+    default: '22'
+  
+  aws-region:
+    description: 'AWS region for Lambda deployment'
+    required: false
+    default: 'us-east-1'
+  
+
+  
+  function-name:
+    description: 'Lambda function name (defaults to repository name)'
+    required: false
+  
+  build-command:
+    description: 'Build command to run (defaults to npm run build)'
+    required: false
+    default: 'npm run build'
+  
+  source-dir:
+    description: 'Source directory for compiled code (defaults to dist)'
+    required: false
+    default: 'dist'
+  
+  package-dir:
+    description: 'Directory to create deployment package in (defaults to package)'
+    required: false
+    default: 'package'
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ inputs.node-version }}
+        cache: 'npm'
+    
+    - name: Install dependencies
+      shell: bash
+      run: npm ci
+    
+    - name: Cache webpack build
+      uses: actions/cache@v4
+      id: webpack-cache
+      with:
+        path: |
+          .webpack
+          ${{ inputs.source-dir }}
+        key: ${{ runner.os }}-webpack-${{ hashFiles('package-lock.json', 'src/**/*.ts') }}
+        restore-keys: |
+          ${{ runner.os }}-webpack-
+    
+    - name: Build TypeScript
+      shell: bash
+      run: ${{ inputs.build-command }}
+    
+    - name: Cache deployment package
+      uses: actions/cache@v4
+      id: package-cache
+      with:
+        path: |
+          ${{ inputs.package-dir }}
+          function.zip
+        key: ${{ runner.os }}-package-${{ hashFiles('package-lock.json') }}
+        restore-keys: |
+          ${{ runner.os }}-package-
+    
+    - name: Create deployment package
+      if: steps.package-cache.outputs.cache-hit != 'true'
+      shell: bash
+      run: |
+        # Create a temporary directory for the package
+        mkdir -p ${{ inputs.package-dir }}
+        
+        # Copy compiled JavaScript from source directory
+        cp -r ${{ inputs.source-dir }}/* ${{ inputs.package-dir }}/
+        
+        # Copy package.json and package-lock.json
+        cp package.json ${{ inputs.package-dir }}/
+        cp package-lock.json ${{ inputs.package-dir }}/
+        
+        # Install production dependencies
+        cd ${{ inputs.package-dir }}
+        npm ci --omit=dev
+        cd ..
+        
+        # Create the zip file
+        cd ${{ inputs.package-dir }}
+        zip -r ../function.zip .
+        cd ..
+    
+    - name: Configure AWS credentials
+      uses: aws-actions/configure-aws-credentials@v4
+      with:
+        role-to-assume: arn:aws:iam::649006552804:role/${{ github.event.repository.name }}-update-code
+        aws-region: ${{ inputs.aws-region }}
+    
+    - name: Update Lambda function
+      shell: bash
+      run: |
+        FUNCTION_NAME="${{ inputs.function-name || github.event.repository.name }}"
+        aws lambda update-function-code \
+          --function-name "$FUNCTION_NAME" \
+          --zip-file fileb://function.zip
+    
+    - name: Verify deployment
+      shell: bash
+      run: |
+        FUNCTION_NAME="${{ inputs.function-name || github.event.repository.name }}"
+        aws lambda get-function \
+          --function-name "$FUNCTION_NAME" \
+          --query 'Configuration.LastUpdateStatus' \
+          --output text
