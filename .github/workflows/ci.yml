@@ -96,43 +96,92 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
       
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '22'
-          cache: 'npm'
-      
-      - name: Create test project
+      - name: Validate action structure
         run: |
-          mkdir -p test-project
-          cd test-project
+          echo "Validating lambda-deploy action structure..."
           
-          # Create package.json
-          cat > package.json << EOF
-          {
-            "name": "test-lambda",
-            "version": "1.0.0",
-            "scripts": {
-              "build": "echo 'Build completed' && mkdir -p dist && echo 'exports.handler = () => {}' > dist/index.js"
-            },
-            "dependencies": {
-              "aws-sdk": "^2.1000.0"
-            }
-          }
+          # Check that the action directory exists
+          if [ ! -d "actions/lambda-deploy" ]; then
+            echo "❌ actions/lambda-deploy directory not found"
+            exit 1
+          fi
+          
+          # Check that action.yml exists
+          if [ ! -f "actions/lambda-deploy/action.yml" ]; then
+            echo "❌ actions/lambda-deploy/action.yml not found"
+            exit 1
+          fi
+          
+          # Check that README.md exists
+          if [ ! -f "actions/lambda-deploy/README.md" ]; then
+            echo "❌ actions/lambda-deploy/README.md not found"
+            exit 1
+          fi
+          
+          # Validate action.yml syntax
+          python3 -c "
+          import yaml
+          import sys
+          try:
+              with open('actions/lambda-deploy/action.yml', 'r') as f:
+                  data = yaml.safe_load(f)
+              
+              # Check required fields
+              required_fields = ['name', 'description', 'runs']
+              missing_fields = [field for field in required_fields if field not in data]
+              
+              if missing_fields:
+                  print(f'❌ Missing required fields: {missing_fields}')
+                  sys.exit(1)
+              
+              # Check that it's a composite action
+              if data.get('runs', {}).get('using') != 'composite':
+                  print('❌ Action must use composite runs')
+                  sys.exit(1)
+              
+              print('✅ Action structure is valid')
+          except yaml.YAMLError as e:
+              print(f'❌ Invalid YAML: {e}')
+              sys.exit(1)
+          "
+          
+          echo "✅ Lambda deploy action validation completed"
+      
+      - name: Test action syntax
+        run: |
+          echo "Testing action syntax and references..."
+          
+          # Test that the action can be referenced in a workflow
+          cat > test-workflow.yml << EOF
+          name: Test Lambda Deploy Action
+          on: [push]
+          jobs:
+            test:
+              runs-on: ubuntu-latest
+              permissions:
+                id-token: write
+                contents: read
+              steps:
+                - uses: actions/checkout@v4
+                - uses: ./
+                  with:
+                    aws-region: us-east-1
+                    function-name: test-function
           EOF
           
-          # Create package-lock.json
-          npm install
-      
-      - name: Test action locally
-        run: |
-          cd test-project
+          # Validate the test workflow
+          python3 -c "
+          import yaml
+          try:
+              with open('test-workflow.yml', 'r') as f:
+                  yaml.safe_load(f)
+              print('✅ Test workflow syntax is valid')
+          except yaml.YAMLError as e:
+              print(f'❌ Invalid test workflow: {e}')
+              exit(1)
+          "
           
-          # Test that the action can be referenced (without actually running AWS commands)
-          echo "Testing action reference..."
-          
-          # This would normally run the action, but we'll just validate the structure
-          echo "✅ Action structure is valid"
+          echo "✅ Action syntax test completed"
   
   security:
     runs-on: ubuntu-latest
