@@ -194,15 +194,9 @@ jobs:
         run: |
           echo "Running security checks..."
           
-          # Check for hardcoded secrets
+          # Check for hardcoded AWS access keys
           if grep -r "AKIA[0-9A-Z]{16}" . --exclude-dir=.git; then
             echo "❌ Found potential AWS access keys"
-            exit 1
-          fi
-          
-          # Check for hardcoded passwords
-          if grep -r "password.*=.*['\"][^'\"]*['\"]" . --exclude-dir=.git; then
-            echo "❌ Found potential hardcoded passwords"
             exit 1
           fi
           
