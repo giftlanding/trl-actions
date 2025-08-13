@@ -94,6 +94,7 @@ jobs:
 | `build-command` | Build command to run | No | `'npm run build'` |
 | `source-dir` | Source directory for compiled code | No | `'dist'` |
 | `package-dir` | Directory to create deployment package in | No | `'package'` |
+| `cache-key-patterns` | Additional file patterns to include in cache key | No | `'src/**/*.ts,src/**/*.js,src/**/*.json'` |
 
 ## Prerequisites
 
@@ -170,6 +171,18 @@ The action includes intelligent caching for:
 
 - **Build artifacts**: Caches the compiled output to speed up subsequent builds
 - **Deployment packages**: Caches the final zip file to avoid recreating identical packages
+
+### Cache Key Strategy
+
+The deployment package cache key includes:
+- `package-lock.json` - for dependency changes
+- `src/**/*.ts` - TypeScript source files
+- `src/**/*.js` - JavaScript source files  
+- `src/**/*.json` - JSON configuration files
+- `src/**/*.tsx` - TypeScript React files
+- `src/**/*.jsx` - JavaScript React files
+
+This ensures that **any source code changes will trigger a cache miss** and create a fresh deployment package with the latest code.
 
 ## Examples
 

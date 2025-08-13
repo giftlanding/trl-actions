@@ -33,6 +33,11 @@ inputs:
     description: 'Directory to create deployment package in (defaults to package)'
     required: false
     default: 'package'
+  
+  cache-key-patterns:
+    description: 'Additional file patterns to include in cache key (comma-separated)'
+    required: false
+    default: 'src/**/*.ts,src/**/*.js,src/**/*.json'
 
 runs:
   using: 'composite'
@@ -69,7 +74,7 @@ runs:
         path: |
           ${{ inputs.package-dir }}
           function.zip
-        key: ${{ runner.os }}-package-${{ hashFiles('package-lock.json') }}
+        key: ${{ runner.os }}-package-${{ hashFiles('package-lock.json', 'src/**/*.ts', 'src/**/*.js', 'src/**/*.json', 'src/**/*.tsx', 'src/**/*.jsx') }}
         restore-keys: |
           ${{ runner.os }}-package-
     
