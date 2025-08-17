@@ -35,14 +35,14 @@ jobs:
           submodules: false  # We'll update them manually
       
       - name: Update submodules
-        uses: giftlanding/trl-actions/actions/update-submodule@main
+        uses: giftlanding/trl-actions/actions/update-submodule@v1.1.0
 ```
 
 ### Advanced Usage
 
 ```yaml
 - name: Update specific submodule
-  uses: giftlanding/trl-actions/actions/update-submodule@main
+  uses: giftlanding/trl-actions/actions/update-submodule@v1.1.0
   with:
     aws-region: 'us-west-2'
     ssm-parameter-path: '/custom/github/pat'
@@ -104,14 +104,14 @@ The PAT should have these permissions:
 
 ```yaml
 - name: Update all submodules
-  uses: giftlanding/trl-actions/actions/update-submodule@main
+  uses: giftlanding/trl-actions/actions/update-submodule@v1.1.0
 ```
 
 ### Update Specific Submodule
 
 ```yaml
 - name: Update specific submodule
-  uses: giftlanding/trl-actions/actions/update-submodule@main
+  uses: giftlanding/trl-actions/actions/update-submodule@v1.1.0
   with:
     submodule-path: 'src/shared-components'
 ```
@@ -120,7 +120,7 @@ The PAT should have these permissions:
 
 ```yaml
 - name: Update with custom PAT parameter
-  uses: giftlanding/trl-actions/actions/update-submodule@main
+  uses: giftlanding/trl-actions/actions/update-submodule@v1.1.0
   with:
     ssm-parameter-path: '/my-org/github/pat'
     aws-region: 'us-west-2'
@@ -149,7 +149,7 @@ jobs:
           submodules: false
       
       - name: Update submodules
-        uses: giftlanding/trl-actions/actions/update-submodule@main
+        uses: giftlanding/trl-actions/actions/update-submodule@v1.1.0
       
       - name: Setup Node.js
         uses: actions/setup-node@v4

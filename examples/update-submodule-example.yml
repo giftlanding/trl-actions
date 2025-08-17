@@ -20,7 +20,7 @@ jobs:
           submodules: false  # We'll update them manually with our action
       
       - name: Update all submodules
-        uses: giftlanding/trl-actions/actions/update-submodule@main
+        uses: giftlanding/trl-actions/actions/update-submodule@v1.1.0
         with:
           aws-region: us-east-1
           ssm-parameter-path: '/trl/github/read-schema-pat'

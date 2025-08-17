@@ -41,6 +41,11 @@ Update Git submodules using a Personal Access Token stored securely in AWS SSM P
 
 **Quick Start:**
 ```yaml
+# Using a specific version tag (recommended for production)
+- name: Update submodules
+  uses: giftlanding/trl-actions/actions/update-submodule@v1.1.0
+
+# Using the main branch (for development/testing)
 - name: Update submodules
   uses: giftlanding/trl-actions/actions/update-submodule@main
 ```
