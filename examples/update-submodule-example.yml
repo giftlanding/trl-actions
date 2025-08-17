@@ -1,0 +1,32 @@
+name: Update Submodules Example
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  update-submodules:
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          submodules: false  # We'll update them manually with our action
+      
+      - name: Update all submodules
+        uses: giftlanding/trl-actions/actions/update-submodule@main
+        with:
+          aws-region: us-east-1
+          ssm-parameter-path: '/trl/github/read-schema-pat'
+      
+      - name: Verify submodules
+        run: |
+          echo "Verifying submodules are up to date..."
+          git submodule status
+          echo "✅ Submodules updated successfully"

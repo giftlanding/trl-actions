@@ -28,22 +28,46 @@ Build Node.js applications and deploy them to AWS Lambda with intelligent cachin
 
 [📖 Full Documentation](./actions/lambda-deploy/README.md)
 
+### [Update Submodules](./actions/update-submodule/)
+
+Update Git submodules using a Personal Access Token stored securely in AWS SSM Parameter Store.
+
+**Features:**
+- 🔐 Secure PAT management via AWS SSM
+- 🔑 Automatic AWS role assumption
+- 🧹 Clean Git configuration management
+- 🎯 Flexible submodule updates
+- 🔒 No PATs stored in repository secrets
+
+**Quick Start:**
+```yaml
+- name: Update submodules
+  uses: giftlanding/trl-actions/actions/update-submodule@main
+```
+
+[📖 Full Documentation](./actions/update-submodule/README.md)
+
 ## Examples
 
 See the [examples](./examples/) directory for complete workflow examples:
 
 - [Lambda Deploy Example](./examples/lambda-deploy-example.yml) - Complete workflow showing how to use the lambda-deploy action
+- [Update Submodules Example](./examples/update-submodule-example.yml) - Complete workflow showing how to use the update-submodule action
 
 ## Repository Structure
 
 ```
 trl-actions/
 ├── actions/
-│   └── lambda-deploy/          # Lambda deployment action
+│   ├── lambda-deploy/          # Lambda deployment action
+│   │   ├── action.yml          # Action definition
+│   │   └── README.md           # Action documentation
+│   └── update-submodule/       # Submodule update action
 │       ├── action.yml          # Action definition
 │       └── README.md           # Action documentation
 ├── examples/
-│   └── lambda-deploy-example.yml  # Example usage workflow
+│   ├── lambda-deploy-example.yml  # Example usage workflow
+│   └── update-submodule-example.yml  # Example usage workflow
 ├── .github/
 │   └── workflows/              # CI/CD for this repository
 └── README.md                   # This file

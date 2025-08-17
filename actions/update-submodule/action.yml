@@ -1,0 +1,74 @@
+name: 'Update Submodules'
+description: 'Update Git submodules using PAT from AWS SSM Parameter Store'
+author: 'Your Organization'
+
+inputs:
+  aws-region:
+    description: 'AWS region for SSM parameter access'
+    required: false
+    default: 'us-east-1'
+  
+  ssm-parameter-path:
+    description: 'SSM parameter path containing the GitHub PAT'
+    required: false
+    default: '/trl/github/read-schema-pat'
+  
+  submodule-path:
+    description: 'Path to submodule to update (optional, updates all if not specified)'
+    required: false
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Configure AWS credentials
+      uses: aws-actions/configure-aws-credentials@v4
+      with:
+        role-to-assume: arn:aws:iam::649006552804:role/${{ github.event.repository.name }}-update-code
+        aws-region: ${{ inputs.aws-region }}
+    
+    - name: Get GitHub PAT from SSM
+      shell: bash
+      run: |
+        echo "Reading GitHub PAT from SSM parameter: ${{ inputs.ssm-parameter-path }}"
+        SUBMODULE_TOKEN=$(aws ssm get-parameter \
+          --name "${{ inputs.ssm-parameter-path }}" \
+          --with-decryption \
+          --query 'Parameter.Value' \
+          --output text)
+        
+        if [ -z "$SUBMODULE_TOKEN" ]; then
+          echo "❌ Failed to read PAT from SSM parameter"
+          exit 1
+        fi
+        
+        echo "✅ Successfully retrieved PAT from SSM"
+        echo "SUBMODULE_TOKEN=$SUBMODULE_TOKEN" >> $GITHUB_ENV
+    
+    - name: Configure Git for submodule access
+      shell: bash
+      run: |
+        echo "Configuring Git to use PAT for GitHub access"
+        git config --global url."https://${{ env.SUBMODULE_TOKEN }}@github.com/".insteadOf "https://github.com/"
+        echo "✅ Git configured for PAT-based access"
+    
+    - name: Update submodules
+      shell: bash
+      run: |
+        echo "Updating Git submodules..."
+        
+        if [ -n "${{ inputs.submodule-path }}" ]; then
+          echo "Updating specific submodule: ${{ inputs.submodule-path }}"
+          git submodule update --init --recursive "${{ inputs.submodule-path }}"
+        else
+          echo "Updating all submodules"
+          git submodule update --init --recursive
+        fi
+        
+        echo "✅ Submodules updated successfully"
+    
+    - name: Clean up Git configuration
+      shell: bash
+      run: |
+        echo "Cleaning up Git configuration"
+        git config --global --unset url."https://${{ env.SUBMODULE_TOKEN }}@github.com/".insteadOf
+        echo "✅ Git configuration cleaned up"
