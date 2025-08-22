@@ -4,7 +4,9 @@ A collection of reusable GitHub Actions for your organization's development work
 
 ## Available Actions
 
-### [Lambda Deploy](./actions/lambda-deploy/)
+## Available Actions
+
+### Lambda Deploy Action
 
 Build Node.js applications and deploy them to AWS Lambda with intelligent caching and verification.
 
@@ -19,16 +21,37 @@ Build Node.js applications and deploy them to AWS Lambda with intelligent cachin
 ```yaml
 # Using a specific version tag (recommended for production)
 - name: Deploy to Lambda
-  uses: giftlanding/trl-actions/actions/lambda-deploy@v1.0.0
+  uses: giftlanding/trl-actions/actions/lambda-deploy@v1.1.0
 
 # Using the main branch (for development/testing)
 - name: Deploy to Lambda
   uses: giftlanding/trl-actions/actions/lambda-deploy@main
 ```
 
-[📖 Full Documentation](./actions/lambda-deploy/README.md)
+**Inputs:**
+| Input | Description | Required | Default |
+|-------|-------------|----------|---------|
+| `node-version` | Node.js version to use | No | `'22'` |
+| `aws-region` | AWS region for Lambda deployment | No | `'us-east-1'` |
+| `function-name` | Lambda function name (defaults to repository name) | No | Repository name |
+| `build-command` | Build command to run | No | `'npm run build'` |
+| `source-dir` | Source directory for compiled code | No | `'dist'` |
+| `package-dir` | Directory to create deployment package in | No | `'package'` |
 
-### [Update Submodules](./actions/update-submodule/)
+**Advanced Usage:**
+```yaml
+- name: Deploy to Lambda
+  uses: giftlanding/trl-actions/actions/lambda-deploy@v1.1.0
+  with:
+    node-version: '20'
+    aws-region: 'us-west-2'
+    function-name: 'my-custom-function-name'
+    build-command: 'npm run build:prod'
+    source-dir: 'build'
+    package-dir: 'lambda-package'
+```
+
+### Update Submodules Action
 
 Update Git submodules using a Personal Access Token stored securely in AWS SSM Parameter Store.
 
@@ -50,7 +73,108 @@ Update Git submodules using a Personal Access Token stored securely in AWS SSM P
   uses: giftlanding/trl-actions/actions/update-submodule@main
 ```
 
-[📖 Full Documentation](./actions/update-submodule/README.md)
+**Inputs:**
+| Input | Description | Required | Default |
+|-------|-------------|----------|---------|
+| `aws-region` | AWS region for SSM parameter access | No | `'us-east-1'` |
+| `ssm-parameter-path` | SSM parameter path containing the GitHub PAT | No | `'/trl/github/read-schema-pat'` |
+| `submodule-path` | Path to specific submodule to update | No | Updates all submodules |
+
+**Advanced Usage:**
+```yaml
+- name: Update specific submodule
+  uses: giftlanding/trl-actions/actions/update-submodule@v1.1.0
+  with:
+    aws-region: 'us-west-2'
+    ssm-parameter-path: '/custom/github/pat'
+    submodule-path: 'src/shared-lib'
+```
+
+## Prerequisites
+
+### AWS IAM Role
+
+Both actions automatically assume a role with the pattern: `arn:aws:iam::649006552804:role/{repository-name}-update-code`
+
+For example, if your repository is named `user-service`, the actions will assume the role `arn:aws:iam::649006552804:role/user-service-update-code`.
+
+#### Required Permissions
+
+**For Lambda Deploy Action:**
+```json
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Action": [
+        "lambda:UpdateFunctionCode",
+        "lambda:GetFunction"
+      ],
+      "Resource": "arn:aws:lambda:*:*:function:*"
+    }
+  ]
+}
+```
+
+**For Update Submodules Action:**
+```json
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Action": [
+        "ssm:GetParameter"
+      ],
+      "Resource": "arn:aws:ssm:*:*:parameter/trl/github/*"
+    }
+  ]
+}
+```
+
+#### Trust Policy
+
+The role should trust GitHub Actions:
+
+```json
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Principal": {
+        "Federated": "arn:aws:iam::649006552804:oidc-provider/token.actions.githubusercontent.com"
+      },
+      "Action": "sts:AssumeRoleWithWebIdentity",
+      "Condition": {
+        "StringEquals": {
+          "token.actions.githubusercontent.com:aud": "sts.amazonaws.com"
+        },
+        "StringLike": {
+          "token.actions.githubusercontent.com:sub": "repo:giftlanding/*:*"
+        }
+      }
+    }
+  ]
+}
+```
+
+### AWS SSM Parameter (Update Submodules Action)
+
+Create a SecureString parameter in AWS SSM for the GitHub PAT:
+
+```bash
+aws ssm put-parameter \
+  --name "/trl/github/read-schema-pat" \
+  --value "ghp_your_github_pat_here" \
+  --type "SecureString" \
+  --description "GitHub Personal Access Token for submodule access"
+```
+
+The PAT should have these permissions:
+- `repo` - Full control of private repositories
+- `read:packages` - Download packages from GitHub Package Registry (if needed)
 
 ## Examples
 
@@ -65,17 +189,15 @@ See the [examples](./examples/) directory for complete workflow examples:
 trl-actions/
 ├── actions/
 │   ├── lambda-deploy/          # Lambda deployment action
-│   │   ├── action.yml          # Action definition
-│   │   └── README.md           # Action documentation
+│   │   └── action.yml          # Action definition
 │   └── update-submodule/       # Submodule update action
-│       ├── action.yml          # Action definition
-│       └── README.md           # Action documentation
+│       └── action.yml          # Action definition
 ├── examples/
 │   ├── lambda-deploy-example.yml  # Example usage workflow
 │   └── update-submodule-example.yml  # Example usage workflow
 ├── .github/
 │   └── workflows/              # CI/CD for this repository
-└── README.md                   # This file
+└── README.md                   # This file (contains all documentation)
 ```
 
 ## Usage
@@ -86,7 +208,7 @@ To use any action from this repository in your projects:
 
 ```yaml
 # Using a specific version tag (recommended for production)
-- uses: giftlanding/trl-actions/actions/action-name@v1.0.0
+- uses: giftlanding/trl-actions/actions/action-name@v1.1.0
 
 # Using the main branch (for development/testing)
 - uses: giftlanding/trl-actions/actions/action-name@main
@@ -95,7 +217,7 @@ To use any action from this repository in your projects:
 - uses: giftlanding/trl-actions/actions/action-name@abc1234
 
 # With inputs
-- uses: giftlanding/trl-actions/actions/action-name@v1.0.0
+- uses: giftlanding/trl-actions/actions/action-name@v1.1.0
   with:
     input-name: value
 ```
