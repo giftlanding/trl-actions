@@ -51,6 +51,36 @@ Build Node.js applications and deploy them to AWS Lambda with intelligent cachin
     package-dir: 'lambda-package'
 ```
 
+**Build Process Assumptions:**
+
+The lambda-deploy action assumes:
+
+1. **Node.js Project**: 
+   - Has `package.json` and `package-lock.json` files
+   - Uses `npm ci` for dependency installation
+
+2. **Build Output**: 
+   - Build process creates files in a single output directory
+   - Output directory contains the final runtime code (no further transpilation needed)
+
+3. **Dependencies**: 
+   - All runtime dependencies are in `package.json`
+   - No native dependencies that require compilation
+
+**Compatible Build Tools:**
+- ✅ TypeScript (`tsc`)
+- ✅ Webpack (with proper output configuration)
+- ✅ Rollup
+- ✅ esbuild
+- ✅ Babel (with proper output)
+
+**Incompatible Build Processes:**
+- ❌ Serverless Framework (use `serverless deploy` instead)
+- ❌ SAM (use `sam build && sam deploy` instead)
+- ❌ Native dependencies requiring compilation
+- ❌ Multi-package monorepos (without custom configuration)
+- ❌ Builds that create multiple output directories
+
 ### Update Submodules Action
 
 Update Git submodules using a Personal Access Token stored securely in AWS SSM Parameter Store.
@@ -175,6 +205,42 @@ aws ssm put-parameter \
 The PAT should have these permissions:
 - `repo` - Full control of private repositories
 - `read:packages` - Download packages from GitHub Package Registry (if needed)
+
+## Troubleshooting
+
+### Common Lambda Deploy Issues
+
+**Build Fails:**
+- Ensure your build command works locally: `npm run build`
+- Check that the source directory exists after build
+- Verify TypeScript compilation succeeds
+
+**Package Too Large:**
+- Use `.npmignore` to exclude unnecessary files
+- Consider using `npm ci --omit=dev` in your build process
+- Check for large dependencies that could be dev dependencies
+
+**Missing Dependencies:**
+- Ensure all runtime dependencies are in `package.json` (not devDependencies)
+- Check that native dependencies are compatible with Lambda runtime
+- Verify `package-lock.json` is up to date
+
+**Wrong Entry Point:**
+- Ensure your Lambda function entry point matches the compiled output
+- Check that `index.js` (or your entry file) exists in the source directory
+- Verify the handler path in your Lambda configuration
+
+### Common Submodule Issues
+
+**Permission Denied:**
+- Ensure your IAM role has `ssm:GetParameter` permission
+- Verify the SSM parameter path exists and is accessible
+- Check that the PAT has sufficient repository permissions
+
+**Submodule Update Fails:**
+- Verify the repository has submodules configured
+- Check that the PAT has access to all submodule repositories
+- Ensure submodule paths are correct
 
 ## Examples
 
