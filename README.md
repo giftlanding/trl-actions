@@ -159,7 +159,7 @@ Upload documentation files to S3 bucket with automatic file detection and proper
 **Quick Start:**
 ```yaml
 - name: Upload documentation
-  uses: giftlanding/trl-actions/actions/upload-docs@main
+  uses: giftlanding/trl-actions/actions/upload-docs@v1.3.0
   with:
     s3-bucket: 'my-documentation-bucket'
 ```
@@ -174,7 +174,7 @@ Upload documentation files to S3 bucket with automatic file detection and proper
 **Advanced Usage:**
 ```yaml
 - name: Upload custom documentation files
-  uses: giftlanding/trl-actions/actions/upload-docs@main
+  uses: giftlanding/trl-actions/actions/upload-docs@v1.3.0
   with:
     s3-bucket: 'my-docs-bucket'
     aws-region: 'us-west-2'
