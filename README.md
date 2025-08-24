@@ -37,6 +37,7 @@ Build Node.js applications and deploy them to AWS Lambda with intelligent cachin
 | `build-command` | Build command to run | No | `'npm run build'` |
 | `source-dir` | Source directory for compiled code | No | `'dist'` |
 | `package-dir` | Directory to create deployment package in | No | `'package'` |
+| `arm-native` | Build native ARM64 binaries using Docker | No | `'false'` |
 
 **Advanced Usage:**
 ```yaml
@@ -50,6 +51,23 @@ Build Node.js applications and deploy them to AWS Lambda with intelligent cachin
     source-dir: 'build'
     package-dir: 'lambda-package'
 ```
+
+**Docker Build for Native ARM64 Binaries:**
+```yaml
+- name: Deploy to Lambda with Docker
+  uses: giftlanding/trl-actions/actions/lambda-deploy@v1.1.0
+  with:
+    arm-native: 'true'
+    node-version: '22'
+```
+
+**How it Works:**
+The action automatically creates a Dockerfile that:
+- Uses the AWS Lambda Node.js base image
+- Installs dependencies with ARM64 native binaries
+- Runs your build command inside the Lambda environment
+- Creates the deployment package with native ARM64 modules
+- Extracts the function.zip for deployment
 
 **Build Process Assumptions:**
 
@@ -65,7 +83,14 @@ The lambda-deploy action assumes:
 
 3. **Dependencies**: 
    - All runtime dependencies are in `package.json`
-   - No native dependencies that require compilation
+   - No native dependencies that require compilation (unless using Docker)
+
+**Docker Build Assumptions (when arm-native=true):**
+- Action automatically creates a Dockerfile for ARM64 builds
+- Uses AWS Lambda base image (e.g., `public.ecr.aws/lambda/nodejs:22`)
+- Builds the project inside the ARM64 Lambda environment
+- Creates `/var/task/function.zip` in the container
+- Installs native dependencies for ARM64 platform
 
 **Compatible Build Tools:**
 - ✅ TypeScript (`tsc`)

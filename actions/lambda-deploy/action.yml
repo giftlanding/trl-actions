@@ -38,6 +38,11 @@ inputs:
     description: 'Additional file patterns to include in cache key (comma-separated)'
     required: false
     default: 'src/**/*.ts,src/**/*.js,src/**/*.json'
+  
+  arm-native:
+    description: 'Build native ARM64 binaries using Docker'
+    required: false
+    default: 'false'
 
 runs:
   using: 'composite'
@@ -52,7 +57,39 @@ runs:
       shell: bash
       run: npm ci
     
-    - name: Cache webpack build
+    - name: Setup Docker (if needed)
+      if: inputs.arm-native == 'true'
+      uses: docker/setup-buildx-action@v3
+      with:
+        driver-opts: |
+          image=moby/buildkit:latest
+    
+    - name: Enable QEMU (if needed)
+      if: inputs.arm-native == 'true'
+      uses: docker/setup-qemu-action@v3
+      with:
+        platforms: linux/arm64
+    
+    - name: Cache npm (if using Docker)
+      if: inputs.arm-native == 'true'
+      uses: actions/cache@v4
+      with:
+        path: .npm
+        key: ${{ runner.os }}-node${{ inputs.node-version }}-arm64-npm-${{ hashFiles('package-lock.json') }}
+        restore-keys: |
+          ${{ runner.os }}-node${{ inputs.node-version }}-arm64-npm-
+    
+    - name: Cache Docker layers (if using Docker)
+      if: inputs.arm-native == 'true'
+      uses: actions/cache@v4
+      with:
+        path: /tmp/.buildx-cache
+        key: ${{ runner.os }}-buildx-${{ github.sha }}
+        restore-keys: |
+          ${{ runner.os }}-buildx-
+    
+    - name: Cache webpack build (if not using Docker)
+      if: inputs.arm-native != 'true'
       uses: actions/cache@v4
       id: webpack-cache
       with:
@@ -63,11 +100,90 @@ runs:
         restore-keys: |
           ${{ runner.os }}-webpack-
     
-    - name: Build TypeScript
+    - name: Build TypeScript (if not using Docker)
+      if: inputs.arm-native != 'true'
       shell: bash
       run: ${{ inputs.build-command }}
     
-    - name: Cache deployment package
+    - name: Create Dockerfile for ARM64 build
+      if: inputs.arm-native == 'true'
+      shell: bash
+      run: |
+        cat > Dockerfile << 'EOF'
+        FROM public.ecr.aws/lambda/nodejs:${{ inputs.node-version }}
+        
+        # Install zip utility
+        RUN command -v dnf && dnf install -y zip || yum -y install zip
+        
+        # Set working directory
+        WORKDIR /var/task
+        
+        # Copy package files first for better caching
+        COPY package*.json ./
+        
+        # Install dependencies with ARM64 native binaries
+        RUN npm config set cache /var/task/.npm --prefer-offline && \
+            npm install --include=optional && \
+            npm_config_platform=linux npm_config_arch=arm64 npm install --include=optional
+        
+        # Copy source files
+        COPY . .
+        
+        # Build the function
+        RUN ${{ inputs.build-command }} && \
+            mkdir -p package && \
+            cp -r ${{ inputs.source-dir }}/* package/ && \
+            cp package*.json package/ && \
+            cd package && \
+            npm ci --omit=dev && \
+            zip -r ../function.zip . && \
+            cd .. && \
+            chmod a+r function.zip
+        
+        CMD ["/bin/bash"]
+        EOF
+        
+        echo "Created Dockerfile for ARM64 build"
+    
+    - name: Build with Docker (if using Docker)
+      if: inputs.arm-native == 'true'
+      shell: bash
+      run: |
+        # Create cache key based on dependencies and source code
+        CACHE_KEY="lambda-build-${{ hashFiles('package-lock.json', 'src/**/*.ts', 'tsconfig.json') }}"
+        echo "Using cache key: $CACHE_KEY"
+        
+        # Build with Docker using Lambda ARM64 container
+        docker buildx build --platform linux/arm64 \
+          --cache-from type=local,src=/tmp/.buildx-cache \
+          --cache-from type=gha \
+          --cache-to type=local,dest=/tmp/.buildx-cache-new,mode=max \
+          --cache-to type=gha,mode=max \
+          --load \
+          --tag lambda-builder \
+          --progress=plain \
+          . || {
+            echo "Cache build failed, trying without cache..."
+            docker buildx build --platform linux/arm64 \
+              --load \
+              --tag lambda-builder \
+              --progress=plain \
+              .
+          }
+        
+        # Move cache to final location
+        rm -rf /tmp/.buildx-cache
+        mv /tmp/.buildx-cache-new /tmp/.buildx-cache
+        
+        # Extract the function.zip from the built image
+        docker create --name temp-container lambda-builder
+        docker cp temp-container:/var/task/function.zip ./function.zip
+        docker rm temp-container
+        
+        echo "Build complete. Function size: $(ls -lh function.zip | awk '{print $5}')"
+    
+    - name: Cache deployment package (if not using Docker)
+      if: inputs.arm-native != 'true'
       uses: actions/cache@v4
       id: package-cache
       with:
@@ -78,8 +194,8 @@ runs:
         restore-keys: |
           ${{ runner.os }}-package-
     
-    - name: Create deployment package
-      if: steps.package-cache.outputs.cache-hit != 'true'
+    - name: Create deployment package (if not using Docker)
+      if: inputs.arm-native != 'true' && steps.package-cache.outputs.cache-hit != 'true'
       shell: bash
       run: |
         # Create a temporary directory for the package
