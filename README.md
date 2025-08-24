@@ -90,7 +90,10 @@ The lambda-deploy action assumes:
 - Uses AWS Lambda base image (e.g., `public.ecr.aws/lambda/nodejs:22`)
 - Builds the project inside the ARM64 Lambda environment
 - Creates `/var/task/function.zip` in the container
-- Installs native dependencies for ARM64 platform
+- **Automatically detects and rebuilds native dependencies** for ARM64 platform
+- **Configures webpack externals** for native dependencies to prevent bundling
+- **Sets proper environment variables** for cross-platform builds
+- **Verifies native dependency installation** in the final package
 
 **Compatible Build Tools:**
 - ✅ TypeScript (`tsc`)
@@ -102,9 +105,15 @@ The lambda-deploy action assumes:
 **Incompatible Build Processes:**
 - ❌ Serverless Framework (use `serverless deploy` instead)
 - ❌ SAM (use `sam build && sam deploy` instead)
-- ❌ Native dependencies requiring compilation
 - ❌ Multi-package monorepos (without custom configuration)
 - ❌ Builds that create multiple output directories
+
+**Native Dependencies Support:**
+- ✅ **ARM64 native dependencies** are fully supported when `arm-native=true`
+- ✅ **Automatic detection** of native dependencies (Sharp, canvas, etc.)
+- ✅ **Proper rebuilding** for ARM64 platform
+- ✅ **Webpack externals configuration** to prevent bundling issues
+- ✅ **Verification** of native dependency installation
 
 ### Update Submodules Action
 

@@ -57,6 +57,43 @@ runs:
       shell: bash
       run: npm ci
     
+    - name: Configure webpack for native dependencies (if ARM64)
+      if: inputs.arm-native == 'true'
+      shell: bash
+      run: |
+        # Check if webpack.config.js exists and add native dependencies to externals
+        if [ -f webpack.config.js ]; then
+          echo "Configuring webpack for ARM64 native dependencies..."
+          
+          # Get list of native dependencies from package.json
+          NATIVE_DEPS=$(node -e "
+            const pkg = require('./package.json');
+            const deps = { ...pkg.dependencies, ...pkg.devDependencies };
+            const nativeDeps = Object.keys(deps).filter(dep => {
+              try {
+                const depPkg = require(dep + '/package.json');
+                return depPkg.binary || depPkg.gypfile || depPkg.scripts && 
+                       (depPkg.scripts.install || depPkg.scripts.rebuild);
+              } catch (e) {
+                return false;
+              }
+            });
+            console.log(nativeDeps.join(','));
+          " 2>/dev/null || echo '')
+          
+          if [ -n "$NATIVE_DEPS" ]; then
+            echo "Found native dependencies: $NATIVE_DEPS"
+            
+            # Add each native dependency to webpack externals
+            for dep in $(echo "$NATIVE_DEPS" | tr ',' ' '); do
+              if [ -n "$dep" ] && ! grep -q "'$dep': '$dep'" webpack.config.js; then
+                echo "Adding $dep to webpack externals..."
+                sed -i "s/externals: {/externals: {\n    '$dep': '$dep',/" webpack.config.js
+              fi
+            done
+          fi
+        fi
+    
     - name: Setup Docker (if needed)
       if: inputs.arm-native == 'true'
       uses: docker/setup-buildx-action@v3
@@ -115,16 +152,22 @@ runs:
         # Install zip utility
         RUN command -v dnf && dnf install -y zip || yum -y install zip
         
+        # Set environment variables for ARM64 builds
+        ENV SHARP_IGNORE_GLOBAL_LIBVIPS=1
+        ENV npm_config_platform=linux
+        ENV npm_config_arch=arm64
+        
         # Set working directory
         WORKDIR /var/task
         
         # Copy package files first for better caching
         COPY package*.json ./
         
-        # Install dependencies with ARM64 native binaries
+        # Install dependencies with proper ARM64 native binaries
         RUN npm config set cache /var/task/.npm --prefer-offline && \
-            npm install --include=optional && \
-            npm_config_platform=linux npm_config_arch=arm64 npm install --include=optional
+            npm ci --include=optional && \
+            # Rebuild all native dependencies for ARM64
+            npm rebuild --platform=linux --arch=arm64 --target=${{ inputs.node-version }}.0
         
         # Copy source files
         COPY . .
@@ -136,6 +179,8 @@ runs:
             cp package*.json package/ && \
             cd package && \
             npm ci --omit=dev && \
+            # Ensure native dependencies are properly installed in final package
+            npm rebuild --platform=linux --arch=arm64 --target=${{ inputs.node-version }}.0 && \
             zip -r ../function.zip . && \
             cd .. && \
             chmod a+r function.zip
@@ -181,6 +226,49 @@ runs:
         docker rm temp-container
         
         echo "Build complete. Function size: $(ls -lh function.zip | awk '{print $5}')"
+        
+        # Verify native dependencies if any were detected
+        if [ -f webpack.config.js ]; then
+          echo "Verifying native dependencies in built package..."
+          
+          # Create temporary container to check native dependencies
+          docker create --name verify-container lambda-builder
+          
+          # Check for common native dependency patterns
+          NATIVE_DEPS=$(node -e "
+            const pkg = require('./package.json');
+            const deps = { ...pkg.dependencies, ...pkg.devDependencies };
+            const nativeDeps = Object.keys(deps).filter(dep => {
+              try {
+                const depPkg = require(dep + '/package.json');
+                return depPkg.binary || depPkg.gypfile || depPkg.scripts && 
+                       (depPkg.scripts.install || depPkg.scripts.rebuild);
+              } catch (e) {
+                return false;
+              }
+            });
+            console.log(nativeDeps.join(','));
+          " 2>/dev/null || echo '')
+          
+          if [ -n "$NATIVE_DEPS" ]; then
+            echo "Verifying native dependencies: $NATIVE_DEPS"
+            
+            for dep in $(echo "$NATIVE_DEPS" | tr ',' ' '); do
+              if [ -n "$dep" ]; then
+                # Check if the native dependency has ARM64 binaries
+                if docker exec verify-container test -d "/var/task/package/node_modules/$dep/build/Release" 2>/dev/null; then
+                  echo "✅ $dep: ARM64 binaries found"
+                elif docker exec verify-container test -d "/var/task/package/node_modules/$dep/build" 2>/dev/null; then
+                  echo "✅ $dep: Build directory found"
+                else
+                  echo "⚠️  $dep: No build directory found (may be pure JS)"
+                fi
+              fi
+            done
+          fi
+          
+          docker rm verify-container
+        fi
     
     - name: Cache deployment package (if not using Docker)
       if: inputs.arm-native != 'true'
