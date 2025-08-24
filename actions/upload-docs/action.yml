@@ -10,7 +10,8 @@ inputs:
   
   s3-bucket:
     description: 'S3 bucket name to upload documentation to'
-    required: true
+    required: false
+    default: 'trl-storage'
   
   docs-files:
     description: 'Comma-separated list of documentation files to check and upload'

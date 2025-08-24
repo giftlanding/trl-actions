@@ -161,14 +161,14 @@ Upload documentation files to S3 bucket with automatic file detection and proper
 - name: Upload documentation
   uses: giftlanding/trl-actions/actions/upload-docs@v1.3.0
   with:
-    s3-bucket: 'my-documentation-bucket'
+    s3-bucket: 'trl-storage'
 ```
 
 **Inputs:**
 | Input | Description | Required | Default |
 |-------|-------------|----------|---------|
 | `aws-region` | AWS region for S3 access | No | `'us-east-1'` |
-| `s3-bucket` | S3 bucket name to upload documentation to | Yes | - |
+| `s3-bucket` | S3 bucket name to upload documentation to | No | `'trl-storage'` |
 | `docs-files` | Comma-separated list of documentation files to check and upload | No | `'README.md,CHANGELOG.md,API.md,docs/**,*.md'` |
 
 **Advanced Usage:**
@@ -176,7 +176,7 @@ Upload documentation files to S3 bucket with automatic file detection and proper
 - name: Upload custom documentation files
   uses: giftlanding/trl-actions/actions/upload-docs@v1.3.0
   with:
-    s3-bucket: 'my-docs-bucket'
+    s3-bucket: 'trl-storage'
     aws-region: 'us-west-2'
     docs-files: 'README.md,API.md,docs/**,*.pdf'
 ```

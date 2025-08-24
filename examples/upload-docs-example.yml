@@ -18,8 +18,8 @@ jobs:
         uses: actions/checkout@v4
       
       - name: Upload documentation to S3
-        uses: giftlanding/trl-actions/actions/upload-docs@main
+        uses: giftlanding/trl-actions/actions/upload-docs@v1.3.0
         with:
-          s3-bucket: 'my-documentation-bucket'
+          s3-bucket: 'trl-storage'
           aws-region: 'us-east-1'
           docs-files: 'README.md,CHANGELOG.md,API.md,docs/**,*.md'
