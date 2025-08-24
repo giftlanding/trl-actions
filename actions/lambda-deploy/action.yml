@@ -57,8 +57,18 @@ runs:
       shell: bash
       run: npm ci
     
-    - name: Configure webpack for native dependencies (if ARM64)
+    - name: Cache webpack configuration (if ARM64)
       if: inputs.arm-native == 'true'
+      uses: actions/cache@v4
+      id: webpack-config-cache
+      with:
+        path: webpack.config.js
+        key: ${{ runner.os }}-webpack-config-${{ hashFiles('package-lock.json', 'webpack.config.js') }}
+        restore-keys: |
+          ${{ runner.os }}-webpack-config-
+    
+    - name: Configure webpack for native dependencies (if ARM64)
+      if: inputs.arm-native == 'true' && steps.webpack-config-cache.outputs.cache-hit != 'true'
       shell: bash
       run: |
         # Check if webpack.config.js exists and add native dependencies to externals
@@ -125,6 +135,18 @@ runs:
         restore-keys: |
           ${{ runner.os }}-buildx-
     
+    - name: Cache webpack build output (if ARM64)
+      if: inputs.arm-native == 'true'
+      uses: actions/cache@v4
+      id: webpack-output-cache
+      with:
+        path: |
+          .webpack
+          ${{ inputs.source-dir }}
+        key: ${{ runner.os }}-webpack-output-arm64-${{ hashFiles('package-lock.json', 'src/**/*.ts', 'src/**/*.js', 'src/**/*.json', 'src/**/*.tsx', 'src/**/*.jsx') }}
+        restore-keys: |
+          ${{ runner.os }}-webpack-output-arm64-
+    
     - name: Cache webpack build (if not using Docker)
       if: inputs.arm-native != 'true'
       uses: actions/cache@v4
@@ -146,7 +168,52 @@ runs:
       if: inputs.arm-native == 'true'
       shell: bash
       run: |
-        cat > Dockerfile << 'EOF'
+        # Check if we have cached webpack output
+        if [ -d "${{ inputs.source-dir }}" ] && [ "$(ls -A ${{ inputs.source-dir }} 2>/dev/null)" ]; then
+          echo "Using cached webpack build output"
+          cat > Dockerfile << 'EOF'
+        FROM public.ecr.aws/lambda/nodejs:${{ inputs.node-version }}
+        
+        # Install zip utility
+        RUN command -v dnf && dnf install -y zip || yum -y install zip
+        
+        # Set environment variables for ARM64 builds
+        ENV SHARP_IGNORE_GLOBAL_LIBVIPS=1
+        ENV npm_config_platform=linux
+        ENV npm_config_arch=arm64
+        
+        # Set working directory
+        WORKDIR /var/task
+        
+        # Copy package files first for better caching
+        COPY package*.json ./
+        
+        # Install dependencies with proper ARM64 native binaries
+        RUN npm config set cache /var/task/.npm --prefer-offline && \
+            npm ci --include=optional && \
+            # Rebuild all native dependencies for ARM64
+            npm rebuild --platform=linux --arch=arm64 --target=${{ inputs.node-version }}.0
+        
+        # Copy source files and cached build output
+        COPY . .
+        
+        # Use cached build output instead of rebuilding
+        RUN mkdir -p package && \
+            cp -r ${{ inputs.source-dir }}/* package/ && \
+            cp package*.json package/ && \
+            cd package && \
+            npm ci --omit=dev && \
+            # Ensure native dependencies are properly installed in final package
+            npm rebuild --platform=linux --arch=arm64 --target=${{ inputs.node-version }}.0 && \
+            zip -r ../function.zip . && \
+            cd .. && \
+            chmod a+r function.zip
+        
+        CMD ["/bin/bash"]
+        EOF
+        else
+          echo "No cached build output, will build from source"
+          cat > Dockerfile << 'EOF'
         FROM public.ecr.aws/lambda/nodejs:${{ inputs.node-version }}
         
         # Install zip utility
@@ -187,6 +254,7 @@ runs:
         
         CMD ["/bin/bash"]
         EOF
+        fi
         
         echo "Created Dockerfile for ARM64 build"
     
@@ -226,6 +294,15 @@ runs:
         docker rm temp-container
         
         echo "Build complete. Function size: $(ls -lh function.zip | awk '{print $5}')"
+        
+        # Save webpack build output for caching if it was built from source
+        if [ ! -d "${{ inputs.source-dir }}" ] || [ ! "$(ls -A ${{ inputs.source-dir }} 2>/dev/null)" ]; then
+          echo "Extracting build output for caching..."
+          docker create --name extract-container lambda-builder
+          docker cp extract-container:/var/task/${{ inputs.source-dir }} ./${{ inputs.source-dir }}
+          docker rm extract-container
+          echo "Build output extracted for future caching"
+        fi
         
         # Verify native dependencies if any were detected
         if [ -f webpack.config.js ]; then
