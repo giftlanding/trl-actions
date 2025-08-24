@@ -145,6 +145,42 @@ Update Git submodules using a Personal Access Token stored securely in AWS SSM P
     submodule-path: 'src/shared-lib'
 ```
 
+### Upload Documentation Action
+
+Upload documentation files to S3 bucket with automatic file detection and proper content types.
+
+**Features:**
+- 🔍 Automatic documentation file detection
+- 📁 Organized S3 structure by repository name
+- 🏷️ Proper content type detection
+- 🔑 Automatic AWS role assumption
+- 📊 Metadata tracking with repository and commit info
+
+**Quick Start:**
+```yaml
+- name: Upload documentation
+  uses: giftlanding/trl-actions/actions/upload-docs@main
+  with:
+    s3-bucket: 'my-documentation-bucket'
+```
+
+**Inputs:**
+| Input | Description | Required | Default |
+|-------|-------------|----------|---------|
+| `aws-region` | AWS region for S3 access | No | `'us-east-1'` |
+| `s3-bucket` | S3 bucket name to upload documentation to | Yes | - |
+| `docs-files` | Comma-separated list of documentation files to check and upload | No | `'README.md,CHANGELOG.md,API.md,docs/**,*.md'` |
+
+**Advanced Usage:**
+```yaml
+- name: Upload custom documentation files
+  uses: giftlanding/trl-actions/actions/upload-docs@main
+  with:
+    s3-bucket: 'my-docs-bucket'
+    aws-region: 'us-west-2'
+    docs-files: 'README.md,API.md,docs/**,*.pdf'
+```
+
 ## Prerequisites
 
 ### AWS IAM Role
@@ -183,6 +219,23 @@ For example, if your repository is named `user-service`, the actions will assume
         "ssm:GetParameter"
       ],
       "Resource": "arn:aws:ssm:*:*:parameter/trl/github/*"
+    }
+  ]
+}
+```
+
+**For Upload Documentation Action:**
+```json
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Action": [
+        "s3:PutObject",
+        "s3:PutObjectAcl"
+      ],
+      "Resource": "arn:aws:s3:::your-docs-bucket/docs/*"
     }
   ]
 }
@@ -273,6 +326,7 @@ See the [examples](./examples/) directory for complete workflow examples:
 
 - [Lambda Deploy Example](./examples/lambda-deploy-example.yml) - Complete workflow showing how to use the lambda-deploy action
 - [Update Submodules Example](./examples/update-submodule-example.yml) - Complete workflow showing how to use the update-submodule action
+- [Upload Documentation Example](./examples/upload-docs-example.yml) - Complete workflow showing how to use the upload-docs action
 
 ## Repository Structure
 
@@ -281,11 +335,14 @@ trl-actions/
 ├── actions/
 │   ├── lambda-deploy/          # Lambda deployment action
 │   │   └── action.yml          # Action definition
-│   └── update-submodule/       # Submodule update action
+│   ├── update-submodule/       # Submodule update action
+│   │   └── action.yml          # Action definition
+│   └── upload-docs/            # Documentation upload action
 │       └── action.yml          # Action definition
 ├── examples/
 │   ├── lambda-deploy-example.yml  # Example usage workflow
-│   └── update-submodule-example.yml  # Example usage workflow
+│   ├── update-submodule-example.yml  # Example usage workflow
+│   └── upload-docs-example.yml  # Example usage workflow
 ├── .github/
 │   └── workflows/              # CI/CD for this repository
 └── README.md                   # This file (contains all documentation)

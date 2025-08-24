@@ -1,0 +1,25 @@
+name: Upload Documentation Example
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  upload-docs:
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Upload documentation to S3
+        uses: giftlanding/trl-actions/actions/upload-docs@main
+        with:
+          s3-bucket: 'my-documentation-bucket'
+          aws-region: 'us-east-1'
+          docs-files: 'README.md,CHANGELOG.md,API.md,docs/**,*.md'

@@ -1,0 +1,111 @@
+name: 'Upload Documentation'
+description: 'Upload documentation files to S3 bucket'
+author: 'Your Organization'
+
+inputs:
+  aws-region:
+    description: 'AWS region for S3 access'
+    required: false
+    default: 'us-east-1'
+  
+  s3-bucket:
+    description: 'S3 bucket name to upload documentation to'
+    required: true
+  
+  docs-files:
+    description: 'Comma-separated list of documentation files to check and upload'
+    required: false
+    default: 'README.md,CHANGELOG.md,API.md,docs/**,*.md'
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Configure AWS credentials
+      uses: aws-actions/configure-aws-credentials@v4
+      with:
+        role-to-assume: arn:aws:iam::649006552804:role/${{ github.event.repository.name }}-update-code
+        aws-region: ${{ inputs.aws-region }}
+    
+    - name: Check for documentation files
+      shell: bash
+      run: |
+        echo "Checking for documentation files..."
+        
+        # Convert comma-separated list to array
+        IFS=',' read -ra FILES <<< "${{ inputs.docs-files }}"
+        
+        FOUND_FILES=()
+        for pattern in "${FILES[@]}"; do
+          # Trim whitespace
+          pattern=$(echo "$pattern" | xargs)
+          
+          if [ -n "$pattern" ]; then
+            # Check if files match the pattern
+            for file in $pattern; do
+              if [ -f "$file" ]; then
+                echo "Found documentation file: $file"
+                FOUND_FILES+=("$file")
+              fi
+            done
+          fi
+        done
+        
+        if [ ${#FOUND_FILES[@]} -eq 0 ]; then
+          echo "No documentation files found. Skipping upload."
+          echo "DOCS_FOUND=false" >> $GITHUB_ENV
+        else
+          echo "Found ${#FOUND_FILES[@]} documentation file(s)"
+          echo "DOCS_FOUND=true" >> $GITHUB_ENV
+          # Store file list for next step
+          printf '%s\n' "${FOUND_FILES[@]}" > docs_files.txt
+        fi
+    
+    - name: Upload documentation to S3
+      if: env.DOCS_FOUND == 'true'
+      shell: bash
+      run: |
+        echo "Uploading documentation to S3..."
+        
+        REPO_NAME="${{ github.event.repository.name }}"
+        S3_BUCKET="${{ inputs.s3-bucket }}"
+        S3_PREFIX="docs/$REPO_NAME"
+        
+        echo "Repository: $REPO_NAME"
+        echo "S3 Bucket: $S3_BUCKET"
+        echo "S3 Prefix: $S3_PREFIX"
+        
+        # Read the list of files to upload
+        while IFS= read -r file; do
+          if [ -f "$file" ]; then
+            # Determine content type based on file extension
+            case "$file" in
+              *.md) content_type="text/markdown" ;;
+              *.html) content_type="text/html" ;;
+              *.txt) content_type="text/plain" ;;
+              *.pdf) content_type="application/pdf" ;;
+              *.json) content_type="application/json" ;;
+              *.yaml|*.yml) content_type="text/yaml" ;;
+              *) content_type="application/octet-stream" ;;
+            esac
+            
+            # Upload to S3
+            s3_key="$S3_PREFIX/$file"
+            echo "Uploading $file to s3://$S3_BUCKET/$s3_key (content-type: $content_type)"
+            
+            aws s3 cp "$file" "s3://$S3_BUCKET/$s3_key" \
+              --content-type "$content_type" \
+              --metadata "repository=$REPO_NAME,commit=${{ github.sha }}"
+            
+            if [ $? -eq 0 ]; then
+              echo "✅ Successfully uploaded $file"
+            else
+              echo "❌ Failed to upload $file"
+              exit 1
+            fi
+          fi
+        done < docs_files.txt
+        
+        echo "✅ All documentation files uploaded successfully"
+        
+        # Clean up
+        rm -f docs_files.txt
