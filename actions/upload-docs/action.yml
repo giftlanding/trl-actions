@@ -16,7 +16,7 @@ inputs:
   docs-files:
     description: 'Comma-separated list of documentation files to check and upload'
     required: false
-    default: 'README.md,CHANGELOG.md,API.md,docs/**,*.md'
+    default: 'README.md,CHANGELOG.md,API.md,swagger.yml,docs/**,*.md'
 
 runs:
   using: 'composite'

@@ -178,7 +178,7 @@ Upload documentation files to S3 bucket with automatic file detection and proper
 |-------|-------------|----------|---------|
 | `aws-region` | AWS region for S3 access | No | `'us-east-1'` |
 | `s3-bucket` | S3 bucket name to upload documentation to | No | `'trl-storage'` |
-| `docs-files` | Comma-separated list of documentation files to check and upload | No | `'README.md,CHANGELOG.md,API.md,docs/**,*.md'` |
+| `docs-files` | Comma-separated list of documentation files to check and upload | No | `'README.md,CHANGELOG.md,API.md,swagger.yml,docs/**,*.md'` |
 
 **Advanced Usage:**
 ```yaml

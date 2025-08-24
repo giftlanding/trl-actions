@@ -22,4 +22,4 @@ jobs:
         with:
           s3-bucket: 'trl-storage'
           aws-region: 'us-east-1'
-          docs-files: 'README.md,CHANGELOG.md,API.md,docs/**,*.md'
+          docs-files: 'README.md,CHANGELOG.md,API.md,swagger.yml,docs/**,*.md'
