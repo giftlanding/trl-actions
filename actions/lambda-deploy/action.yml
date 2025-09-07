@@ -37,7 +37,7 @@ inputs:
   cache-key-patterns:
     description: 'Additional file patterns to include in cache key (comma-separated)'
     required: false
-    default: 'src/**/*.ts,src/**/*.js,src/**/*.json,tsconfig.json,webpack.config.js'
+    default: '**/*'
   
   force-rebuild:
     description: 'Force rebuild by invalidating cache'
