@@ -159,48 +159,6 @@ runs:
             # Rebuild all native dependencies for ARM64
             npm rebuild --platform=linux --arch=arm64 --target=${{ inputs.node-version }}.0
         
-        # Copy source files and cached build output
-        COPY . .
-        
-        # Use cached build output instead of rebuilding
-        RUN mkdir -p package && \
-            cp -r ${{ inputs.source-dir }}/* package/ && \
-            cp package*.json package/ && \
-            cd package && \
-            npm ci --omit=dev && \
-            # Ensure native dependencies are properly installed in final package
-            npm rebuild --platform=linux --arch=arm64 --target=${{ inputs.node-version }}.0 && \
-            zip -r ../function.zip . && \
-            cd .. && \
-            chmod a+r function.zip
-        
-        CMD ["/bin/bash"]
-        EOF
-        else
-          echo "No cached build output, will build from source"
-          cat > Dockerfile << 'EOF'
-        FROM public.ecr.aws/lambda/nodejs:${{ inputs.node-version }}
-        
-        # Install zip utility and git
-        RUN command -v dnf && dnf install -y zip git || yum -y install zip git
-        
-        # Set environment variables for ARM64 builds
-        ENV SHARP_IGNORE_GLOBAL_LIBVIPS=1
-        ENV npm_config_platform=linux
-        ENV npm_config_arch=arm64
-        
-        # Set working directory
-        WORKDIR /var/task
-        
-        # Copy package files first for better caching
-        COPY package*.json ./
-        
-        # Install dependencies with proper ARM64 native binaries
-        RUN npm config set cache /var/task/.npm --prefer-offline && \
-            npm ci --include=optional && \
-            # Rebuild all native dependencies for ARM64
-            npm rebuild --platform=linux --arch=arm64 --target=${{ inputs.node-version }}.0
-        
         # Copy source files
         COPY . .
         
@@ -219,7 +177,6 @@ runs:
         
         CMD ["/bin/bash"]
         EOF
-        fi
         
         echo "Created Dockerfile for ARM64 build"
     
