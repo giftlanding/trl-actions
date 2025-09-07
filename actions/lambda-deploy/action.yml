@@ -218,8 +218,8 @@ runs:
           cat > Dockerfile << 'EOF'
         FROM public.ecr.aws/lambda/nodejs:${{ inputs.node-version }}
         
-        # Install zip utility
-        RUN command -v dnf && dnf install -y zip || yum -y install zip
+        # Install zip utility and git
+        RUN command -v dnf && dnf install -y zip git || yum -y install zip git
         
         # Set environment variables for ARM64 builds
         ENV SHARP_IGNORE_GLOBAL_LIBVIPS=1
@@ -260,8 +260,8 @@ runs:
           cat > Dockerfile << 'EOF'
         FROM public.ecr.aws/lambda/nodejs:${{ inputs.node-version }}
         
-        # Install zip utility
-        RUN command -v dnf && dnf install -y zip || yum -y install zip
+        # Install zip utility and git
+        RUN command -v dnf && dnf install -y zip git || yum -y install zip git
         
         # Set environment variables for ARM64 builds
         ENV SHARP_IGNORE_GLOBAL_LIBVIPS=1
