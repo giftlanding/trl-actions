@@ -21,7 +21,7 @@ Build Node.js applications and deploy them to AWS Lambda with intelligent cachin
 ```yaml
 # Using a specific version tag (recommended for production)
 - name: Deploy to Lambda
-  uses: giftlanding/trl-actions/actions/lambda-deploy@v1.5.3
+  uses: giftlanding/trl-actions/actions/lambda-deploy@v1.5.4
 
 # Using the main branch (for development/testing)
 - name: Deploy to Lambda
@@ -44,7 +44,7 @@ Build Node.js applications and deploy them to AWS Lambda with intelligent cachin
 **Advanced Usage:**
 ```yaml
 - name: Deploy to Lambda
-  uses: giftlanding/trl-actions/actions/lambda-deploy@v1.5.3
+  uses: giftlanding/trl-actions/actions/lambda-deploy@v1.5.4
   with:
     node-version: '20'
     aws-region: 'us-west-2'
@@ -60,7 +60,7 @@ Build Node.js applications and deploy them to AWS Lambda with intelligent cachin
 ```yaml
 # Force a complete rebuild (useful for debugging cache issues)
 - name: Deploy to Lambda with Force Rebuild
-  uses: giftlanding/trl-actions/actions/lambda-deploy@v1.5.3
+  uses: giftlanding/trl-actions/actions/lambda-deploy@v1.5.4
   with:
     force-rebuild: 'true'
 ```
@@ -68,7 +68,7 @@ Build Node.js applications and deploy them to AWS Lambda with intelligent cachin
 **Docker Build for Native ARM64 Binaries:**
 ```yaml
 - name: Deploy to Lambda with Docker
-  uses: giftlanding/trl-actions/actions/lambda-deploy@v1.5.3
+  uses: giftlanding/trl-actions/actions/lambda-deploy@v1.5.4
   with:
     arm-native: 'true'
     node-version: '22'
@@ -429,7 +429,7 @@ To create a new version of your actions:
 
 3. **All actions become available** at the new version:
    ```yaml
-   - uses: giftlanding/trl-actions/actions/lambda-deploy@v1.5.3
+   - uses: giftlanding/trl-actions/actions/lambda-deploy@v1.5.4
    - uses: giftlanding/trl-actions/actions/ecs-deploy@v1.0.0  # Future action
    ```
 
