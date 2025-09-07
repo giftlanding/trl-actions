@@ -160,7 +160,7 @@ runs:
           ${{ inputs.source-dir }}
         key: ${{ runner.os }}-webpack-output-arm64-${{ hashFiles('package-lock.json', inputs.cache-key-patterns) }}
         restore-keys: |
-          ${{ runner.os }}-webpack-output-arm64-
+          ${{ runner.os }}-webpack-output-arm64-${{ hashFiles('package-lock.json') }}-
     
     - name: Log cache status (if ARM64)
       if: inputs.arm-native == 'true'
@@ -192,7 +192,7 @@ runs:
           ${{ inputs.source-dir }}
         key: ${{ runner.os }}-webpack-${{ hashFiles('package-lock.json', inputs.cache-key-patterns) }}
         restore-keys: |
-          ${{ runner.os }}-webpack-
+          ${{ runner.os }}-webpack-${{ hashFiles('package-lock.json') }}-
     
     - name: Log cache status (if not using Docker)
       if: inputs.arm-native != 'true'
@@ -401,7 +401,7 @@ runs:
           function.zip
         key: ${{ runner.os }}-package-${{ hashFiles('package-lock.json', inputs.cache-key-patterns) }}
         restore-keys: |
-          ${{ runner.os }}-package-
+          ${{ runner.os }}-package-${{ hashFiles('package-lock.json') }}-
     
     - name: Create deployment package (if not using Docker)
       if: inputs.arm-native != 'true' && (inputs.force-rebuild == 'true' || steps.package-cache.outputs.cache-hit != 'true')
