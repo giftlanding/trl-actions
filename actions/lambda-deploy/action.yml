@@ -37,7 +37,12 @@ inputs:
   cache-key-patterns:
     description: 'Additional file patterns to include in cache key (comma-separated)'
     required: false
-    default: 'src/**/*.ts,src/**/*.js,src/**/*.json'
+    default: 'src/**/*.ts,src/**/*.js,src/**/*.json,tsconfig.json,webpack.config.js'
+  
+  force-rebuild:
+    description: 'Force rebuild by invalidating cache'
+    required: false
+    default: 'false'
   
   arm-native:
     description: 'Build native ARM64 binaries using Docker'
@@ -135,32 +140,46 @@ runs:
         restore-keys: |
           ${{ runner.os }}-buildx-
     
-    - name: Cache webpack build output (if ARM64)
+    - name: Debug cache key (if ARM64)
       if: inputs.arm-native == 'true'
+      shell: bash
+      run: |
+        echo "Cache key would be: ${{ runner.os }}-webpack-output-arm64-${{ hashFiles('package-lock.json', inputs.cache-key-patterns) }}"
+        echo "Force rebuild: ${{ inputs.force-rebuild }}"
+    
+    - name: Cache webpack build output (if ARM64)
+      if: inputs.arm-native == 'true' && inputs.force-rebuild != 'true'
       uses: actions/cache@v4
       id: webpack-output-cache
       with:
         path: |
           .webpack
           ${{ inputs.source-dir }}
-        key: ${{ runner.os }}-webpack-output-arm64-${{ hashFiles('package-lock.json', 'src/**/*.ts', 'src/**/*.js', 'src/**/*.json', 'src/**/*.tsx', 'src/**/*.jsx') }}
+        key: ${{ runner.os }}-webpack-output-arm64-${{ hashFiles('package-lock.json', inputs.cache-key-patterns) }}
         restore-keys: |
           ${{ runner.os }}-webpack-output-arm64-
     
-    - name: Cache webpack build (if not using Docker)
+    - name: Debug cache key (if not using Docker)
       if: inputs.arm-native != 'true'
+      shell: bash
+      run: |
+        echo "Cache key would be: ${{ runner.os }}-webpack-${{ hashFiles('package-lock.json', inputs.cache-key-patterns) }}"
+        echo "Force rebuild: ${{ inputs.force-rebuild }}"
+    
+    - name: Cache webpack build (if not using Docker)
+      if: inputs.arm-native != 'true' && inputs.force-rebuild != 'true'
       uses: actions/cache@v4
       id: webpack-cache
       with:
         path: |
           .webpack
           ${{ inputs.source-dir }}
-        key: ${{ runner.os }}-webpack-${{ hashFiles('package-lock.json', 'src/**/*.ts') }}
+        key: ${{ runner.os }}-webpack-${{ hashFiles('package-lock.json', inputs.cache-key-patterns) }}
         restore-keys: |
           ${{ runner.os }}-webpack-
     
     - name: Build TypeScript (if not using Docker)
-      if: inputs.arm-native != 'true'
+      if: inputs.arm-native != 'true' && (inputs.force-rebuild == 'true' || steps.webpack-cache.outputs.cache-hit != 'true')
       shell: bash
       run: ${{ inputs.build-command }}
     
@@ -168,8 +187,8 @@ runs:
       if: inputs.arm-native == 'true'
       shell: bash
       run: |
-        # Check if we have cached webpack output
-        if [ -d "${{ inputs.source-dir }}" ] && [ "$(ls -A ${{ inputs.source-dir }} 2>/dev/null)" ]; then
+        # Check if we have cached webpack output and force-rebuild is not set
+        if [ "${{ inputs.force-rebuild }}" != "true" ] && [ -d "${{ inputs.source-dir }}" ] && [ "$(ls -A ${{ inputs.source-dir }} 2>/dev/null)" ]; then
           echo "Using cached webpack build output"
           cat > Dockerfile << 'EOF'
         FROM public.ecr.aws/lambda/nodejs:${{ inputs.node-version }}
@@ -348,19 +367,19 @@ runs:
         fi
     
     - name: Cache deployment package (if not using Docker)
-      if: inputs.arm-native != 'true'
+      if: inputs.arm-native != 'true' && inputs.force-rebuild != 'true'
       uses: actions/cache@v4
       id: package-cache
       with:
         path: |
           ${{ inputs.package-dir }}
           function.zip
-        key: ${{ runner.os }}-package-${{ hashFiles('package-lock.json', 'src/**/*.ts', 'src/**/*.js', 'src/**/*.json', 'src/**/*.tsx', 'src/**/*.jsx') }}
+        key: ${{ runner.os }}-package-${{ hashFiles('package-lock.json', inputs.cache-key-patterns) }}
         restore-keys: |
           ${{ runner.os }}-package-
     
     - name: Create deployment package (if not using Docker)
-      if: inputs.arm-native != 'true' && steps.package-cache.outputs.cache-hit != 'true'
+      if: inputs.arm-native != 'true' && (inputs.force-rebuild == 'true' || steps.package-cache.outputs.cache-hit != 'true')
       shell: bash
       run: |
         # Create a temporary directory for the package

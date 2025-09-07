@@ -37,6 +37,8 @@ Build Node.js applications and deploy them to AWS Lambda with intelligent cachin
 | `build-command` | Build command to run | No | `'npm run build'` |
 | `source-dir` | Source directory for compiled code | No | `'dist'` |
 | `package-dir` | Directory to create deployment package in | No | `'package'` |
+| `cache-key-patterns` | File patterns to include in cache key (comma-separated) | No | `'src/**/*.ts,src/**/*.js,src/**/*.json,tsconfig.json,webpack.config.js'` |
+| `force-rebuild` | Force rebuild by invalidating cache | No | `'false'` |
 | `arm-native` | Build native ARM64 binaries using Docker | No | `'false'` |
 
 **Advanced Usage:**
@@ -50,6 +52,17 @@ Build Node.js applications and deploy them to AWS Lambda with intelligent cachin
     build-command: 'npm run build:prod'
     source-dir: 'build'
     package-dir: 'lambda-package'
+    cache-key-patterns: 'src/**/*.ts,src/**/*.js,src/**/*.json,tsconfig.json,webpack.config.js,config/**/*.js'
+    force-rebuild: 'false'
+```
+
+**Cache Invalidation:**
+```yaml
+# Force a complete rebuild (useful for debugging cache issues)
+- name: Deploy to Lambda with Force Rebuild
+  uses: giftlanding/trl-actions/actions/lambda-deploy@v1.1.0
+  with:
+    force-rebuild: 'true'
 ```
 
 **Docker Build for Native ARM64 Binaries:**
@@ -316,6 +329,16 @@ The PAT should have these permissions:
 - Ensure your Lambda function entry point matches the compiled output
 - Check that `index.js` (or your entry file) exists in the source directory
 - Verify the handler path in your Lambda configuration
+
+**Cache Issues (Stale Deployments):**
+- **Symptoms**: Deployed code doesn't match recent commits, missing features, old behavior
+- **Debug**: Check the "Debug cache key" step output in your workflow logs
+- **Solution**: Use `force-rebuild: 'true'` to invalidate all caches
+- **Prevention**: Ensure `cache-key-patterns` includes all files that affect your build:
+  ```yaml
+  cache-key-patterns: 'src/**/*.ts,src/**/*.js,src/**/*.json,tsconfig.json,webpack.config.js,config/**/*.js'
+  ```
+- **Common Missing Patterns**: `tsconfig.json`, `webpack.config.js`, config files, environment files
 
 ### Common Submodule Issues
 
